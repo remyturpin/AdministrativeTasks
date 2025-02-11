@@ -152,3 +152,50 @@ if uploaded_file:
         for _, row in df.iterrows():
             report = report.append({"Email": row["Email"], "Status": "Pending"}, ignore_index=True)
         st.dataframe(report)
+
+# Bouton pour envoyer les e-mails
+if st.button("🚀 Envoyer les e-mails maintenant"):
+    try:
+        # Connexion SMTP
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(email_sender, email_password)
+
+        for index, row in df.iterrows():
+            email_receiver = row["Email"]
+            
+            # Personnalisation du message
+            try:
+                subject_email = subject.format(**row)
+                body_email = message_body.format(**row)
+            except KeyError as e:
+                st.error(f" Erreur: La colonne {e} est absente du fichier Excel !")
+                continue
+
+            # Création du mail
+            msg = MIMEMultipart()
+            msg["From"] = email_sender
+            msg["To"] = email_receiver
+            msg["Subject"] = subject_email
+            msg.attach(MIMEText(body_email, "plain"))
+
+            # Ajout de pièce jointe si existante
+            if attachment is not None:
+                file_name = attachment.name
+                attachment.seek(0)
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(attachment.read())
+                encoders.encode_base64(part)
+                part.add_header("Content-Disposition", f"attachment; filename={file_name}")
+                msg.attach(part)
+
+            # Envoi de l'e-mail
+            server.sendmail(email_sender, email_receiver, msg.as_string())
+            st.success(f" Email envoyé à {email_receiver}")
+
+        server.quit()
+        st.success("🎉 Tous les e-mails ont été envoyés avec succès !")
+
+    except Exception as e:
+        st.error(f" Erreur lors de l'envoi : {e}")
+
