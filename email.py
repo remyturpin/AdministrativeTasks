@@ -1,14 +1,3 @@
-import subprocess
-import sys
-import os
-
-requirements_file = "requirements1.txt"
-
-if os.path.exists(requirements_file):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", requirements_file])
-else:
-    print(f"{requirements_file} does not exist.")
-
 import streamlit as st
 import pandas as pd
 import smtplib
