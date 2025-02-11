@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import smtplib
 import schedule
-import time
 import threading
 import datetime
+import time
 import matplotlib.pyplot as plt
 from io import BytesIO
 from email.mime.multipart import MIMEMultipart
@@ -17,7 +17,7 @@ import base64
 st.set_page_config(page_title="Trading Desk Email Sender", layout="wide")
 
 # Title
-st.title(" Trading Room Mass Email Sender")
+st.title("Trading Room Mass Email Sender")
 
 # Sidebar - SMTP Settings
 st.sidebar.header(" Email Settings")
@@ -27,7 +27,7 @@ smtp_server = st.sidebar.text_input("SMTP Server", value="smtp.gmail.com")
 smtp_port = st.sidebar.number_input("SMTP Port", value=587, step=1)
 
 # Upload Excel file
-uploaded_file = st.file_uploader(" Upload an Excel file with client data", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload an Excel file with client data", type=["xlsx"])
 
 # Email Composition
 st.header("Email Customization")
@@ -59,12 +59,13 @@ send_time = st.sidebar.time_input("Select Time for Scheduled Send", datetime.tim
 
 # Display Data Preview
 if uploaded_file:
-    df = pd.read_excel(uploaded_file)
+    df = pd.read_excel(uploaded_file, engine="openpyxl")
+    df.columns = df.columns.str.strip()  # Supprimer les espaces cachés
     st.write("Preview of uploaded data:")
     st.dataframe(df)
 
     if "Email" not in df.columns:
-        st.error(" The Excel file must contain an 'Email' column.")
+        st.error("The Excel file must contain an 'Email' column.")
     else:
         # Generate Chart
         def create_market_chart():
@@ -87,8 +88,14 @@ if uploaded_file:
                 server.starttls()
                 server.login(email_sender, email_password)
                 
+                report = pd.DataFrame(columns=["Email", "Status"])
+
                 for _, row in df.iterrows():
                     email_receiver = row["Email"]
+                    if not pd.notna(email_receiver) or email_receiver.strip() == "":
+                        st.error("❌ L'un des emails est vide ! Vérifiez le fichier Excel.")
+                        continue
+
                     try:
                         formatted_subject = subject.format(**row)
                         formatted_body = message_body.format(**row)
@@ -120,82 +127,33 @@ if uploaded_file:
                         msg.attach(part)
 
                     server.sendmail(email_sender, email_receiver, msg.as_string())
-                    st.success(f" Email sent to {email_receiver}")
+                    report.loc[len(report)] = {"Email": email_receiver, "Status": "Sent"}
+                    st.success(f"Email sent to {email_receiver}")
 
                 server.quit()
-                st.success(" All emails have been sent successfully!")
+                st.success("🎉 All emails have been sent successfully!")
+                st.dataframe(report)
 
             except Exception as e:
-                st.error(f" Error: {e}")
+                st.error(f"Error: {e}")
 
         # Schedule Email Sending
-        def schedule_email_sending():
-            while True:
-                now = datetime.datetime.now().time()
-                if now.hour == send_time.hour and now.minute == send_time.minute:
-                    send_emails()
-                    break
-                time.sleep(30)  # Check every 30 seconds
-
-        # Buttons for immediate or scheduled sending
-        if st.button("Send Emails Now"):
+        def scheduled_job():
             send_emails()
 
-        if schedule_enabled and st.sidebar.button("Schedule Emails"):
-            st.sidebar.success(f" Emails scheduled for {send_time.strftime('%H:%M')}")
-            thread = threading.Thread(target=schedule_email_sending)
-            thread.start()
+        if schedule_enabled:
+            schedule.clear()
+            schedule.every().day.at(send_time.strftime("%H:%M")).do(scheduled_job)
 
-        # Email Sending Report
-        st.header("Email Sending Report")
-        report = pd.DataFrame(columns=["Email", "Status"])
-        for _, row in df.iterrows():
-            report = report.append({"Email": row["Email"], "Status": "Pending"}, ignore_index=True)
-        st.dataframe(report)
+            def run_scheduler():
+                while True:
+                    schedule.run_pending()
+                    time.sleep(60)  # Check every 60 seconds
 
-# Bouton pour envoyer les e-mails
-if st.button("🚀 Envoyer les e-mails maintenant"):
-    try:
-        # Connexion SMTP
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(email_sender, email_password)
+            if st.sidebar.button("Schedule Emails"):
+                threading.Thread(target=run_scheduler, daemon=True).start()
+                st.sidebar.success(f"Emails scheduled for {send_time.strftime('%H:%M')}")
 
-        for index, row in df.iterrows():
-            email_receiver = row["Email"]
-            
-            # Personnalisation du message
-            try:
-                subject_email = subject.format(**row)
-                body_email = message_body.format(**row)
-            except KeyError as e:
-                st.error(f" Erreur: La colonne {e} est absente du fichier Excel !")
-                continue
-
-            # Création du mail
-            msg = MIMEMultipart()
-            msg["From"] = email_sender
-            msg["To"] = email_receiver
-            msg["Subject"] = subject_email
-            msg.attach(MIMEText(body_email, "plain"))
-
-            # Ajout de pièce jointe si existante
-            if attachment is not None:
-                file_name = attachment.name
-                attachment.seek(0)
-                part = MIMEBase("application", "octet-stream")
-                part.set_payload(attachment.read())
-                encoders.encode_base64(part)
-                part.add_header("Content-Disposition", f"attachment; filename={file_name}")
-                msg.attach(part)
-
-            # Envoi de l'e-mail
-            server.sendmail(email_sender, email_receiver, msg.as_string())
-            st.success(f" Email envoyé à {email_receiver}")
-
-        server.quit()
-        st.success("🎉 Tous les e-mails ont été envoyés avec succès !")
-
-    except Exception as e:
-        st.error(f" Erreur lors de l'envoi : {e}")
-
+        # Buttons for immediate sending
+        if st.button("🚀 Send Emails Now"):
+            send_emails()
