@@ -1,0 +1,7 @@
+streamlit
+pandas
+smtplib
+email
+matplotlib
+schedule
+openpyxl
