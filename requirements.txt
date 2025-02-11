@@ -5,3 +5,7 @@ matplotlib
 scikit-learn
 schedule
 openpyxl
+yfinance
+smtplib
+email
+base64
