@@ -20,7 +20,7 @@ st.set_page_config(page_title="Trading Desk Email Sender", layout="wide")
 st.title("Trading Room Mass Email Sender")
 
 # Sidebar - SMTP Settings
-st.sidebar.header(" Email Settings")
+st.sidebar.header("Email Settings")
 email_sender = st.sidebar.text_input("Sender Email")
 email_password = st.sidebar.text_input("Password", type="password")
 smtp_server = st.sidebar.text_input("SMTP Server", value="smtp.gmail.com")
@@ -60,14 +60,17 @@ send_time = st.sidebar.time_input("Select Time for Scheduled Send", datetime.tim
 # Display Data Preview
 if uploaded_file:
     df = pd.read_excel(uploaded_file, engine="openpyxl")
-    df.columns = df.columns.str.strip()  # Supprimer les espaces cachés
+    df.columns = df.columns.str.strip()  # ✅ Supprime les espaces cachés
     st.write("Preview of uploaded data:")
     st.dataframe(df)
 
     if "Email" not in df.columns:
-        st.error("The Excel file must contain an 'Email' column.")
+        st.error("❌ The Excel file must contain an 'Email' column.")
     else:
-        # Generate Chart
+        # Initialisation du rapport d'envoi
+        report = pd.DataFrame(columns=["Email", "Status"])  # ✅ Ajout du DataFrame
+
+        # Function to create and embed a chart
         def create_market_chart():
             fig, ax = plt.subplots(figsize=(6, 3))
             ax.plot([1, 2, 3, 4, 5], [10, 12, 8, 15, 9], marker="o", linestyle="-")
@@ -87,13 +90,12 @@ if uploaded_file:
                 server = smtplib.SMTP(smtp_server, smtp_port)
                 server.starttls()
                 server.login(email_sender, email_password)
-                
-                report = pd.DataFrame(columns=["Email", "Status"])
 
-                for _, row in df.iterrows():
-                    email_receiver = row["Email"]
+                for index, row in df.iterrows():
+                    email_receiver = row.loc["Email"]
+
                     if not pd.notna(email_receiver) or email_receiver.strip() == "":
-                        st.error("❌ L'un des emails est vide ! Vérifiez le fichier Excel.")
+                        st.error("❌ One of the emails is empty! Check the Excel file.")
                         continue
 
                     try:
@@ -128,7 +130,7 @@ if uploaded_file:
 
                     server.sendmail(email_sender, email_receiver, msg.as_string())
                     report.loc[len(report)] = {"Email": email_receiver, "Status": "Sent"}
-                    st.success(f"Email sent to {email_receiver}")
+                    st.success(f"✅ Email sent to {email_receiver}")
 
                 server.quit()
                 st.success("🎉 All emails have been sent successfully!")
@@ -152,7 +154,7 @@ if uploaded_file:
 
             if st.sidebar.button("Schedule Emails"):
                 threading.Thread(target=run_scheduler, daemon=True).start()
-                st.sidebar.success(f"Emails scheduled for {send_time.strftime('%H:%M')}")
+                st.sidebar.success(f"📅 Emails scheduled for {send_time.strftime('%H:%M')}")
 
         # Buttons for immediate sending
         if st.button("🚀 Send Emails Now"):
