@@ -1,7 +1,5 @@
-pandas
-smtplib
-email
-matplotlib
-schedule
-openpyxl
 streamlit
+pandas
+numpy
+matplotlib
+scikit-learn
