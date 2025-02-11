@@ -119,18 +119,34 @@ if uploaded_file:
         report = pd.DataFrame(columns=["Email", "Status"])  #Ajout du DataFrame
 
         # Function to create and embed a chart
-        def create_market_chart():
-            fig, ax = plt.subplots(figsize=(6, 3))
-            ax.plot([1, 2, 3, 4, 5], [10, 12, 8, 15, 9], marker="o", linestyle="-")
-            ax.set_title("Market Trend Overview")
-            ax.set_xlabel("Time")
-            ax.set_ylabel("Price")
-            buf = BytesIO()
-            fig.savefig(buf, format="png")
-            buf.seek(0)
-            return buf
+def create_market_chart(ticker):
+    """
+    Récupère les données historiques du ticker sur 7 jours et génère un graphique.
+    """
+    try:
+        stock = yf.Ticker(ticker)
+        df = stock.history(period="7d")  # Données des 7 derniers jours
 
-        market_chart = create_market_chart()
+        if df.empty:
+            return None  # Si aucune donnée n'est récupérée
+
+        # Création du graphique
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.plot(df.index, df["Close"], marker="o", linestyle="-", color="b", label=ticker)
+        ax.set_title(f"Market Trend - {ticker} (Last 7 Days)")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Price")
+        ax.legend()
+        ax.grid(True)
+
+        # Sauvegarde du graphique en mémoire
+        buf = BytesIO()
+        fig.savefig(buf, format="png")
+        buf.seek(0)
+        return buf
+    except Exception as e:
+        print(f"Erreur lors de la récupération des données pour {ticker}: {e}")
+        return None
 
         # Function to send emails
         def send_emails():
@@ -139,32 +155,69 @@ if uploaded_file:
                 server.starttls()
                 server.login(email_sender, email_password)
 
-                for index, row in df.iterrows():
-                    email_receiver = row.loc["Email"]
+for index, row in df.iterrows():
+    email_receiver = row.loc["Email"]
+    ticker = row.get("market_index", "").strip()  # Lecture du ticker dans Excel
 
-                    if not pd.notna(email_receiver) or email_receiver.strip() == "":
-                        st.error("One of the emails is empty! Check the Excel file.")
-                        continue
+    # Vérification que le ticker est valide
+    if not ticker:
+        st.error(f"❌ No market index (ticker) found for {email_receiver}. Skipping.")
+        continue
 
-                    try:
-                        formatted_subject = subject.format(**row)
-                        formatted_body = message_body.format(**row)
-                    except KeyError as e:
-                        st.error(f"Error: Column {e} is missing in the Excel file!")
-                        continue
+    # Générer le graphique avec les données de Yahoo Finance
+    market_chart = create_market_chart(ticker)
+    if market_chart is None:
+        st.error(f"⚠️ No data found for {ticker}. Skipping email for {email_receiver}.")
+        continue
 
-                    msg = MIMEMultipart()
-                    msg["From"] = email_sender
-                    msg["To"] = email_receiver
-                    msg["Subject"] = formatted_subject
+    # Convertir le graphique en base64 pour l’intégrer dans l’email
+    img_data = market_chart.getvalue()
+    img_base64 = base64.b64encode(img_data).decode()
+    img_tag = f'<img src="data:image/png;base64,{img_base64}" width="600px"/>'
+    
+    # Générer l’email en HTML
+    formatted_body_html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.5; color: #333; }}
+            .container {{ width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; }}
+            h2 {{ color: #0056b3; }}
+            p {{ margin: 10px 0; }}
+            .chart-container {{ text-align: center; margin-top: 20px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <p>Dear <strong>{row['client_name']}</strong>,</p>
 
-                    # Embed Chart
-                    img_data = market_chart.getvalue()
-                    img_base64 = base64.b64encode(img_data).decode()
-                    img_tag = f'<img src="data:image/png;base64,{img_base64}" width="600px"/>'
-                    formatted_body_html = f"<html><body>{formatted_body}<br>{img_tag}</body></html>"
+            <p>The market is experiencing significant movements today, with 
+            <strong>{row['market_index']}</strong> showing a change of 
+            <strong>{row['change']}%</strong>.</p>
 
-                    msg.attach(MIMEText(formatted_body_html, "html"))
+            <p><strong>Key factors:</strong></p>
+            <ul>
+                <li>{row['sector_impact']}</li>
+                <li>{row['market_drivers']}</li>
+                <li>{row['trade_recommendation']}</li>
+            </ul>
+
+            <p>See the attached chart for more details.</p>
+
+            <p>Best regards,<br><strong>{row['trading_desk_name']}</strong></p>
+
+            <div class="chart-container">
+                <h2>Market Trend - {ticker} (Last 7 Days)</h2>
+                {img_tag}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Envoyer l'email avec le HTML amélioré
+    msg.attach(MIMEText(formatted_body_html, "html"))
+
 
                     # Attach File
                     if attachment:
