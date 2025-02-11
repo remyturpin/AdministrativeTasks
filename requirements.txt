@@ -2,9 +2,7 @@ streamlit
 pandas
 numpy
 matplotlib
-scikit-learn
 schedule
 openpyxl
-email
-base64
+requests
 git+https://github.com/ranaroussi/yfinance.git
