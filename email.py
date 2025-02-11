@@ -32,22 +32,66 @@ uploaded_file = st.file_uploader("Upload an Excel file with client data", type=[
 # Email Composition
 st.header("Email Customization")
 subject = st.text_input("Email Subject", "Market Update: {market_index} Drops {change}%")
+
 message_body = st.text_area(
-    "Email Body (Use {placeholders} from Excel)", 
-    """Dear {client_name},
+    "Email Body (Use {placeholders} from Excel)",
+    """<html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.5;
+                color: #333;
+            }}
+            .container {{
+                width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                background-color: #f9f9f9;
+            }}
+            h2 {{
+                color: #0056b3;
+            }}
+            p {{
+                margin: 10px 0;
+            }}
+            .chart-container {{
+                text-align: center;
+                margin-top: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <p>Dear <strong>{client_name}</strong>,</p>
 
-The market is experiencing significant movements today, with {market_index} showing a change of {change}%.
-Key factors:
-- {sector_impact}
-- {market_drivers}
-- {trade_recommendation}
+            <p>The market is experiencing significant movements today, with 
+            <strong>{market_index}</strong> showing a change of 
+            <strong>{change}%</strong>.</p>
 
-See the attached chart for more details.
+            <p><strong>Key factors:</strong></p>
+            <ul>
+                <li>{sector_impact}</li>
+                <li>{market_drivers}</li>
+                <li>{trade_recommendation}</li>
+            </ul>
 
-Best regards,
-{trading_desk_name}
-"""
+            <p>See the attached chart for more details.</p>
+
+            <p>Best regards,<br><strong>{trading_desk_name}</strong></p>
+
+            <div class="chart-container">
+                <h2>Market Trend - {market_index} (Last 7 Days)</h2>
+                <img src="data:image/png;base64,{img_base64}" width="550px"/>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 )
+
 
 # File attachment option
 attachment = st.file_uploader("Attach a file (optional)", type=["pdf", "docx", "xlsx", "png", "jpg", "jpeg"])
