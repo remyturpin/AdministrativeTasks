@@ -1,94 +1,116 @@
 import streamlit as st
 import pandas as pd
 import smtplib
+import schedule
+import time
+import threading
+import datetime
+import matplotlib.pyplot as plt
+from io import BytesIO
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-import os
+import base64
 
-# Configuration de la page
-st.set_page_config(page_title="Envoi d'e-mails personnalisé", layout="wide")
+# Streamlit Page Config
+st.set_page_config(page_title="Trading Desk Email Sender", layout="wide")
 
-# Titre
-st.title(" Envoi d'e-mails personnalisé avec Excel")
+# Title
+st.title(" Trading Room Mass Email Sender")
 
-# Paramètres de l'expéditeur
-st.sidebar.header(" Paramètres d'envoi")
-email_sender = st.sidebar.text_input("Adresse e-mail expéditeur")
-email_password = st.sidebar.text_input("Mot de passe", type="password")
+# Sidebar - SMTP Settings
+st.sidebar.header(" Email Settings")
+email_sender = st.sidebar.text_input("Sender Email")
+email_password = st.sidebar.text_input("Password", type="password")
+smtp_server = st.sidebar.text_input("SMTP Server", value="smtp.gmail.com")
+smtp_port = st.sidebar.number_input("SMTP Port", value=587, step=1)
 
-smtp_server = st.sidebar.text_input("Serveur SMTP", value="smtp.gmail.com")
-smtp_port = st.sidebar.number_input("Port SMTP", value=587, step=1)
+# Upload Excel file
+uploaded_file = st.file_uploader(" Upload an Excel file with client data", type=["xlsx"])
 
-# Upload du fichier Excel
-uploaded_file = st.file_uploader(" Importer un fichier Excel contenant les e-mails et informations", type=["xlsx"])
+# Email Composition
+st.header("Email Customization")
+subject = st.text_input("Email Subject", "Market Update: {market_index} Drops {change}%")
+message_body = st.text_area(
+    "Email Body (Use {placeholders} from Excel)", 
+    """Dear {client_name},
 
-# Rédaction du message avec placeholders
-st.header("✉️ Rédaction du mail personnalisé")
-subject = st.text_input("Objet du mail", "Votre produit {produit} est disponible !")
-message_body = st.text_area("Message", 
-                            """Bonjour {prenom} {nom},
+The market is experiencing significant movements today, with {market_index} showing a change of {change}%.
+Key factors:
+- {sector_impact}
+- {market_drivers}
+- {trade_recommendation}
 
-Votre produit "{produit}" est maintenant disponible au prix de {montant}.
-Votre position actuelle dans la liste est {position}.
+See the attached chart for more details.
 
-N'hésitez pas à nous contacter si vous avez des questions.
+Best regards,
+{trading_desk_name}
+"""
+)
 
-Cordialement,
-L'équipe Support""")
+# File attachment option
+attachment = st.file_uploader("Attach a file (optional)", type=["pdf", "docx", "xlsx", "png", "jpg", "jpeg"])
 
-# Ajout de pièce jointe
-attachment = st.file_uploader(" Ajouter une pièce jointe (PDF, DOCX, etc.)", type=["pdf", "docx", "xlsx", "png", "jpg", "jpeg"])
+# Email Scheduling
+st.sidebar.header("Schedule Email")
+schedule_enabled = st.sidebar.checkbox("Enable Scheduling")
+send_time = st.sidebar.time_input("Select Time for Scheduled Send", datetime.time(9, 0))
 
-# Chargement du fichier Excel et affichage des données
+# Display Data Preview
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
-    st.write(" Aperçu des données du fichier Excel :")
+    st.write("Preview of uploaded data:")
     st.dataframe(df)
 
-    # Vérifier si la colonne Email existe
     if "Email" not in df.columns:
-        st.error(" Le fichier Excel doit contenir une colonne 'Email'")
+        st.error(" The Excel file must contain an 'Email' column.")
     else:
-        # Bouton pour afficher un aperçu
-        if st.button(" Aperçu d'un e-mail"):
-            example_row = df.iloc[0].to_dict()
-            preview_subject = subject.format(**example_row)
-            preview_message = message_body.format(**example_row)
+        # Generate Chart
+        def create_market_chart():
+            fig, ax = plt.subplots(figsize=(6, 3))
+            ax.plot([1, 2, 3, 4, 5], [10, 12, 8, 15, 9], marker="o", linestyle="-")
+            ax.set_title("Market Trend Overview")
+            ax.set_xlabel("Time")
+            ax.set_ylabel("Price")
+            buf = BytesIO()
+            fig.savefig(buf, format="png")
+            buf.seek(0)
+            return buf
 
-            st.subheader(" Aperçu du premier e-mail")
-            st.write(f"**Objet:** {preview_subject}")
-            st.write(f"**Message:**\n{preview_message}")
+        market_chart = create_market_chart()
 
-        # Bouton pour envoyer les emails
-        if st.button(" Envoyer les e-mails"):
+        # Function to send emails
+        def send_emails():
             try:
-                # Connexion SMTP
                 server = smtplib.SMTP(smtp_server, smtp_port)
                 server.starttls()
                 server.login(email_sender, email_password)
-
-                for index, row in df.iterrows():
+                
+                for _, row in df.iterrows():
                     email_receiver = row["Email"]
-                    
-                    # Personnalisation du message
                     try:
-                        subject_email = subject.format(**row)
-                        body_email = message_body.format(**row)
+                        formatted_subject = subject.format(**row)
+                        formatted_body = message_body.format(**row)
                     except KeyError as e:
-                        st.error(f" Erreur: La colonne {e} est absente du fichier Excel !")
+                        st.error(f"Error: Column {e} is missing in the Excel file!")
                         continue
 
-                    # Création du mail
                     msg = MIMEMultipart()
                     msg["From"] = email_sender
                     msg["To"] = email_receiver
-                    msg["Subject"] = subject_email
-                    msg.attach(MIMEText(body_email, "plain"))
+                    msg["Subject"] = formatted_subject
 
-                    # Ajout de pièce jointe si existante
-                    if attachment is not None:
+                    # Embed Chart
+                    img_data = market_chart.getvalue()
+                    img_base64 = base64.b64encode(img_data).decode()
+                    img_tag = f'<img src="data:image/png;base64,{img_base64}" width="600px"/>'
+                    formatted_body_html = f"<html><body>{formatted_body}<br>{img_tag}</body></html>"
+
+                    msg.attach(MIMEText(formatted_body_html, "html"))
+
+                    # Attach File
+                    if attachment:
                         file_name = attachment.name
                         attachment.seek(0)
                         part = MIMEBase("application", "octet-stream")
@@ -97,12 +119,36 @@ if uploaded_file:
                         part.add_header("Content-Disposition", f"attachment; filename={file_name}")
                         msg.attach(part)
 
-                    # Envoi de l'e-mail
                     server.sendmail(email_sender, email_receiver, msg.as_string())
-                    st.success(f" Email envoyé à {email_receiver}")
+                    st.success(f" Email sent to {email_receiver}")
 
                 server.quit()
-                st.success(" Tous les e-mails ont été envoyés avec succès !")
-            except Exception as e:
-                st.error(f" Erreur : {e}")
+                st.success(" All emails have been sent successfully!")
 
+            except Exception as e:
+                st.error(f" Error: {e}")
+
+        # Schedule Email Sending
+        def schedule_email_sending():
+            while True:
+                now = datetime.datetime.now().time()
+                if now.hour == send_time.hour and now.minute == send_time.minute:
+                    send_emails()
+                    break
+                time.sleep(30)  # Check every 30 seconds
+
+        # Buttons for immediate or scheduled sending
+        if st.button("Send Emails Now"):
+            send_emails()
+
+        if schedule_enabled and st.sidebar.button("Schedule Emails"):
+            st.sidebar.success(f" Emails scheduled for {send_time.strftime('%H:%M')}")
+            thread = threading.Thread(target=schedule_email_sending)
+            thread.start()
+
+        # Email Sending Report
+        st.header("Email Sending Report")
+        report = pd.DataFrame(columns=["Email", "Status"])
+        for _, row in df.iterrows():
+            report = report.append({"Email": row["Email"], "Status": "Pending"}, ignore_index=True)
+        st.dataframe(report)
