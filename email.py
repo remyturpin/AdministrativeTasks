@@ -9,13 +9,10 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
-import matplotlib.pyplot as plt
-from io import BytesIO
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-import base64
 
 # Streamlit Page Config
 st.set_page_config(page_title="Trading Desk Email Sender", layout="wide")
