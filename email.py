@@ -5,6 +5,10 @@ import schedule
 import threading
 import datetime
 import time
+import yfinance as yf
+import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
 import matplotlib.pyplot as plt
 from io import BytesIO
 from email.mime.multipart import MIMEMultipart
