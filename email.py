@@ -60,15 +60,15 @@ send_time = st.sidebar.time_input("Select Time for Scheduled Send", datetime.tim
 # Display Data Preview
 if uploaded_file:
     df = pd.read_excel(uploaded_file, engine="openpyxl")
-    df.columns = df.columns.str.strip()  # ✅ Supprime les espaces cachés
+    df.columns = df.columns.str.strip()  #Supprime les espaces cachés
     st.write("Preview of uploaded data:")
     st.dataframe(df)
 
     if "Email" not in df.columns:
-        st.error("❌ The Excel file must contain an 'Email' column.")
+        st.error("The Excel file must contain an 'Email' column.")
     else:
         # Initialisation du rapport d'envoi
-        report = pd.DataFrame(columns=["Email", "Status"])  # ✅ Ajout du DataFrame
+        report = pd.DataFrame(columns=["Email", "Status"])  #Ajout du DataFrame
 
         # Function to create and embed a chart
         def create_market_chart():
@@ -95,7 +95,7 @@ if uploaded_file:
                     email_receiver = row.loc["Email"]
 
                     if not pd.notna(email_receiver) or email_receiver.strip() == "":
-                        st.error("❌ One of the emails is empty! Check the Excel file.")
+                        st.error("One of the emails is empty! Check the Excel file.")
                         continue
 
                     try:
@@ -130,10 +130,10 @@ if uploaded_file:
 
                     server.sendmail(email_sender, email_receiver, msg.as_string())
                     report.loc[len(report)] = {"Email": email_receiver, "Status": "Sent"}
-                    st.success(f"✅ Email sent to {email_receiver}")
+                    st.success(f"Email sent to {email_receiver}")
 
                 server.quit()
-                st.success("🎉 All emails have been sent successfully!")
+                st.success("All emails have been sent successfully!")
                 st.dataframe(report)
 
             except Exception as e:
@@ -154,8 +154,8 @@ if uploaded_file:
 
             if st.sidebar.button("Schedule Emails"):
                 threading.Thread(target=run_scheduler, daemon=True).start()
-                st.sidebar.success(f"📅 Emails scheduled for {send_time.strftime('%H:%M')}")
+                st.sidebar.success(f"Emails scheduled for {send_time.strftime('%H:%M')}")
 
         # Buttons for immediate sending
-        if st.button("🚀 Send Emails Now"):
+        if st.button("Send Emails Now"):
             send_emails()
