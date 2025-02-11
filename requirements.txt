@@ -5,7 +5,7 @@ matplotlib
 scikit-learn
 schedule
 openpyxl
-yfinance
 smtplib
 email
 base64
+git+https://github.com/ranaroussi/yfinance.git
