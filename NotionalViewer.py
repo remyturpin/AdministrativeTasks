@@ -5,7 +5,7 @@ from io import BytesIO
 ################### Page config ###################
 st.set_page_config(page_title="NotionalView", layout="wide")
 
-st.title("NotionalView — Client Notional per Country")
+st.title("Notional View — Client Notional per Country")
 
 st.markdown(
     """
