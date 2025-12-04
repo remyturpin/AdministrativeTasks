@@ -7,3 +7,4 @@ This project automates email sending based on an Excel file containing recipient
 
 ### Notional Viewer
 Notional Viewer converts raw trade data into a country-by-client notional exposure pivot for instant trading desk analytics.
+Project available at : https://notionalviewer.streamlit.app
