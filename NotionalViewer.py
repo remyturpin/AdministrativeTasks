@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 from io import BytesIO
 
-# ------------------ Page config ------------------
+################### Page config ###################
 st.set_page_config(page_title="NotionalView", layout="wide")
 
 st.title("NotionalView — Client Notional per Country")
@@ -21,7 +21,7 @@ and the **sum of notional traded** in each cell.
 """
 )
 
-# ------------------ File upload ------------------
+################### File upload ###################
 uploaded_file = st.file_uploader(
     "Upload your trade file (CSV or Excel)",
     type=["csv", "xlsx", "xls"]
@@ -37,7 +37,7 @@ if uploaded_file is not None:
     st.subheader("Raw Data")
     st.dataframe(df, use_container_width=True)
 
-    # ------------------ Sidebar filters ------------------
+################### Sidebar filters ###################
     with st.sidebar:
         st.header("Filters")
 
@@ -51,19 +51,18 @@ if uploaded_file is not None:
             )
             df = df[df["product_type"].isin(selected_products)]
 
-    # ------------------ Validation ------------------
+################### Validation ###################
     required_cols = {"country", "client", "notional"}
     if not required_cols.issubset(df.columns):
         st.error(f"Input file must contain at least the following columns: {required_cols}")
     else:
-        # ------------------ Aggregation ------------------
         summary_long = (
             df
             .groupby(["country", "client"], as_index=False)["notional"]
             .sum()
         )
 
-        # ------------------ Pivot (final output) ------------------
+#################### Pivot ###################
         pivot_df = summary_long.pivot_table(
             index="country",
             columns="client",
@@ -75,7 +74,7 @@ if uploaded_file is not None:
         st.subheader("Pivot Table — Notional per Country and Client")
         st.dataframe(pivot_df, use_container_width=True)
 
-        # ------------------ Excel export: pivot only ------------------
+#################### Excel export ###################
         st.markdown("---")
         st.subheader("Download Excel Pivot")
 
@@ -84,7 +83,7 @@ if uploaded_file is not None:
             pivot_df.to_excel(writer, sheet_name="Pivot_Table")
 
         st.download_button(
-            label="📥 Download pivot table (Excel)",
+            label=" Download pivot table (Excel)",
             data=excel_pivot.getvalue(),
             file_name="notional_country_client_pivot.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
