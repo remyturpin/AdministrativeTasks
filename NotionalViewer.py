@@ -16,8 +16,8 @@ This app takes a trade file with the following columns:
 - `product_type`
 - `notional`
 
-and returns, for each country, the list of clients with the **sum of notional traded**.  
-You can switch between a *long format* and an *Excel-like pivot table*, and export the results in Excel.
+and returns, for each country, an **Excel-like pivot table** with clients in columns
+and the **sum of notional traded** in each cell.
 """
 )
 
@@ -56,16 +56,15 @@ if uploaded_file is not None:
     if not required_cols.issubset(df.columns):
         st.error(f"Input file must contain at least the following columns: {required_cols}")
     else:
-        # ------------------ Aggregation (long format) ------------------
+        # ------------------ Aggregation ------------------
         summary_long = (
             df
             .groupby(["country", "client"], as_index=False)["notional"]
             .sum()
-            .sort_values(["country", "notional"], ascending=[True, False])
         )
 
-        # ------------------ Pivot (wide format) ------------------
-        summary_wide = summary_long.pivot_table(
+        # ------------------ Pivot (final output) ------------------
+        pivot_df = summary_long.pivot_table(
             index="country",
             columns="client",
             values="notional",
@@ -73,59 +72,21 @@ if uploaded_file is not None:
             fill_value=0
         )
 
-        # ------------------ View selector ------------------
-        view_mode = st.radio(
-            "Select display mode:",
-            [
-                "Long format (Country / Client / Notional)",
-                "Pivot table (Countries as rows, Clients as columns)"
-            ]
-        )
+        st.subheader("Pivot Table — Notional per Country and Client")
+        st.dataframe(pivot_df, use_container_width=True)
 
-        st.subheader("Aggregated Notional")
-
-        if view_mode == "Long format (Country / Client / Notional)":
-            st.dataframe(summary_long, use_container_width=True)
-        else:
-            st.dataframe(summary_wide, use_container_width=True)
-
+        # ------------------ Excel export: pivot only ------------------
         st.markdown("---")
-        st.subheader("Download Excel report")
+        st.subheader("Download Excel Pivot")
 
-        # ------------------ Excel export: long format ------------------
-        excel_long = BytesIO()
-        with pd.ExcelWriter(excel_long, engine="xlsxwriter") as writer:
-            summary_long.to_excel(writer, sheet_name="Long_Format", index=False)
-
-        st.download_button(
-            label="📥 Download long-format table (Excel)",
-            data=excel_long.getvalue(),
-            file_name="notional_country_client_long.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
-        # ------------------ Excel export: pivot format ------------------
         excel_pivot = BytesIO()
         with pd.ExcelWriter(excel_pivot, engine="xlsxwriter") as writer:
-            summary_wide.to_excel(writer, sheet_name="Pivot_Table")
+            pivot_df.to_excel(writer, sheet_name="Pivot_Table")
 
         st.download_button(
             label="📥 Download pivot table (Excel)",
             data=excel_pivot.getvalue(),
             file_name="notional_country_client_pivot.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
-        # ------------------ Excel export: full report (2 sheets) ------------------
-        excel_full = BytesIO()
-        with pd.ExcelWriter(excel_full, engine="xlsxwriter") as writer:
-            summary_long.to_excel(writer, sheet_name="Long_Format", index=False)
-            summary_wide.to_excel(writer, sheet_name="Pivot_Table")
-
-        st.download_button(
-            label="📥 Download full Excel report (2 sheets)",
-            data=excel_full.getvalue(),
-            file_name="notional_country_client_report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
