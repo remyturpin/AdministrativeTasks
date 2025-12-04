@@ -5,4 +5,5 @@ matplotlib
 schedule
 openpyxl
 requests
+xlsxwrite
 git+https://github.com/ranaroussi/yfinance.git
